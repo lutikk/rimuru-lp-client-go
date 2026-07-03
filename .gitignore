@@ -1,0 +1,15 @@
+# Конфиг пользователя с его VK-токеном — НИКОГДА не коммитить
+config.json
+
+# Сборка / релизы
+/dist/
+/rimuru-lp-client
+/rimuru-lp-client.exe
+rimuru_lp_client_go
+*.exe
+*.log
+
+# ОС / IDE
+.DS_Store
+.idea/
+.vscode/
