@@ -1,6 +1,7 @@
 package main
 
-const baseDomain = "https://api.rimuruproject.ru"
+// Go-хаб (порт rimuruduty на Go). Go-клиент работает ТОЛЬКО с Go-API.
+const baseDomain = "https://go.rimuruproject.ru"
 
 func callbackLink() string {
 	return baseDomain + "/callback/"
