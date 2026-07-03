@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/SevereCloud/vksdk/v3/api"
 )
 
 type Alias struct {
@@ -71,16 +73,69 @@ func LoadConfig() *UserConfig {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return initNewConfig()
 	}
+	// Защита от «отравленного» конфига: старые версии на silent-ссылке сохраняли
+	// в поле token весь URL целиком, из-за чего клиент падал при каждом запуске,
+	// пока config.json не удалят вручную. Теперь такой токен ловим и переспрашиваем.
+	if looksBrokenToken(cfg.Token) {
+		fmt.Println("⚠ Сохранённый токен выглядит некорректным (не похож на VK access_token).")
+		fmt.Println("  Повторная настройка.")
+		fmt.Println()
+		return initNewConfig()
+	}
 	return &cfg
 }
 
 func initNewConfig() *UserConfig {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Файл конфигурации не найден. Пожалуйста, введите токен: ")
-	tokenInput, _ := reader.ReadString('\n')
-	tokenInput = strings.TrimSpace(tokenInput)
 
-	token, userID := parseToken(tokenInput)
+	fmt.Println("Файл конфигурации не найден — нужна первичная настройка.")
+	fmt.Println()
+	fmt.Println("1) Открой в браузере эту ссылку и войди в свой VK-аккаунт:")
+	fmt.Println()
+	fmt.Println("   " + vkAuthURL)
+	fmt.Println()
+	fmt.Println("2) После входа тебя перекинет на страницу oauth.vk.com/blank.html —")
+	fmt.Println("   скопируй ВЕСЬ адрес из строки браузера (в нём есть #access_token=...)")
+	fmt.Println("   и вставь сюда. Можно вставить и сам токен (vk1.a....).")
+	fmt.Println()
+
+	var token string
+	var userID int
+	for {
+		fmt.Print("Вставь ссылку с токеном или сам токен: ")
+		tokenInput, _ := reader.ReadString('\n')
+		tokenInput = strings.TrimSpace(tokenInput)
+
+		if tokenInput == "" {
+			fmt.Println("  Пустой ввод. Попробуй ещё раз.")
+			continue
+		}
+
+		// Отсекаем silent_token (VK ID): им НЕЛЬЗЯ пользоваться как access_token,
+		// а обменять его без сервисного ключа приложения-инициатора невозможно.
+		if isSilentToken(tokenInput) {
+			fmt.Println("  ✗ Это silent-токен VK ID (в ссылке #payload=...\"type\":\"silent_token\"),")
+			fmt.Println("    а не access_token — использовать напрямую нельзя.")
+			fmt.Println("    Открой ссылку выше именно в обычном браузере (не через VK ID one-tap)")
+			fmt.Println("    и скопируй адрес страницы blank.html с #access_token=...")
+			continue
+		}
+
+		token, userID = parseToken(tokenInput)
+
+		// Валидируем токен ДО сохранения (users.get). Заодно добираем user_id,
+		// если во вводе была не ссылка, а голый токен.
+		id, err := validateToken(token)
+		if err != nil {
+			fmt.Printf("  ✗ Токен не прошёл проверку VK (users.get): %v\n", err)
+			fmt.Println("    Убедись, что скопировал именно access_token, и попробуй снова.")
+			continue
+		}
+		if id != 0 {
+			userID = id
+		}
+		break
+	}
 
 	cfg := &UserConfig{
 		ID:           userID,
@@ -92,6 +147,7 @@ func initNewConfig() *UserConfig {
 		SecretCode:   "Noy",
 	}
 	cfg.Save()
+	fmt.Printf("✓ Токен принят (user_id=%d), конфиг сохранён.\n\n", userID)
 	return cfg
 }
 
@@ -108,6 +164,45 @@ func parseToken(input string) (string, int) {
 		}
 	}
 	return input, 0
+}
+
+// isSilentToken распознаёт ссылку/строку VK ID с silent-токеном
+// (redirect на blank.html#payload=...{"type":"silent_token"...}).
+func isSilentToken(input string) bool {
+	if !strings.Contains(input, "#") {
+		return false
+	}
+	fragment := strings.SplitN(input, "#", 2)[1]
+	if params, err := url.ParseQuery(fragment); err == nil {
+		if payload := params.Get("payload"); payload != "" {
+			return strings.Contains(payload, "silent_token")
+		}
+	}
+	// Фолбэк: payload мог не распарситься как query — ищем маркер в сырой строке.
+	return strings.Contains(input, "silent_token")
+}
+
+// validateToken проверяет VK access_token через users.get и возвращает id владельца.
+// Пустой/битый токен или ошибка VK => токен не принимается.
+func validateToken(token string) (int, error) {
+	if token == "" {
+		return 0, fmt.Errorf("пустой токен")
+	}
+	users, err := api.NewVK(token).UsersGet(api.Params{})
+	if err != nil {
+		return 0, err
+	}
+	if len(users) == 0 {
+		return 0, fmt.Errorf("users.get вернул пустой ответ")
+	}
+	return users[0].ID, nil
+}
+
+// looksBrokenToken — грубая проверка, что в поле token лежит НЕ VK access_token,
+// а мусор (URL/фрагмент). Настоящий токен vk1.a.... не содержит "://" и "#".
+func looksBrokenToken(token string) bool {
+	t := strings.TrimSpace(token)
+	return t == "" || strings.Contains(t, "://") || strings.Contains(t, "#")
 }
 
 func (u *UserConfig) HasMyPrefix(text string) bool {
