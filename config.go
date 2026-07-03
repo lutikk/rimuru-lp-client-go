@@ -46,9 +46,34 @@ type UserConfig struct {
 	Hello        []HelloChat  `json:"hello"`
 }
 
-func configPath() string {
+// baseDir — директория рядом с исполняемым файлом. Именно сюда кладём config.json,
+// чтобы клиент можно было запускать из любого места (cd в другую папку, ярлык,
+// systemd/cron с чужим WorkingDirectory) и он всегда находил свой конфиг.
+// Фолбэк на текущую рабочую директорию — только если путь к бинарнику недоступен
+// (крайне редкий случай) или мы под `go run` (бинарник во временной папке).
+func baseDir() string {
+	exe, err := os.Executable()
+	if err == nil {
+		if resolved, lerr := filepath.EvalSymlinks(exe); lerr == nil {
+			exe = resolved
+		}
+		if dir := filepath.Dir(exe); !isGoRunTemp(dir) {
+			return dir
+		}
+	}
 	dir, _ := os.Getwd()
-	return filepath.Join(dir, "config.json")
+	return dir
+}
+
+// isGoRunTemp распознаёт временную директорию `go run` (go-build...),
+// чтобы при разработке конфиг не терялся во временной папке, а падал в cwd.
+func isGoRunTemp(dir string) bool {
+	return strings.Contains(dir, "go-build") ||
+		strings.HasPrefix(dir, os.TempDir())
+}
+
+func configPath() string {
+	return filepath.Join(baseDir(), "config.json")
 }
 
 func (u *UserConfig) Save() error {

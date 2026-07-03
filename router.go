@@ -59,7 +59,7 @@ func parseMessageEvent(event []interface{}, vk *api.VK) *MessageEvent {
 		}
 	}
 
-	return &MessageEvent{
+	msg := &MessageEvent{
 		MessageID:             msgID,
 		Flags:                 flags,
 		PeerID:                peerID,
@@ -68,6 +68,36 @@ func parseMessageEvent(event []interface{}, vk *api.VK) *MessageEvent {
 		FromID:                fromID,
 		ConversationMessageID: convMsgID,
 		Action:                action,
+	}
+
+	// User-longpoll НЕ отдаёт conversation_message_id в сыром массиве, а from_id
+	// в личке приходится угадывать по peer_id (получается чужой id). Поэтому, как и
+	// vkbottle (message_min -> messages.getById), догружаем полный объект сообщения
+	// по локальному message_id и берём оттуда точные from_id/peer_id/text/cmid.
+	// Без этого .л-сигнал уходит на хаб с conversation_message_id=0 (хаб «кладёт в
+	// базу» вместо матча), а алиас-триггер бьёт getByConversationMessageId(0).
+	// Сервисные (.слп) команды cmid не используют — поэтому и работали без гидрации.
+	if action == "" && msgID != 0 {
+		hydrateFromAPI(vk, msg)
+	}
+
+	return msg
+}
+
+// hydrateFromAPI догружает сообщение через messages.getById и перезаписывает
+// поля точными значениями из VK. При ошибке оставляем то, что распарсили из LP.
+func hydrateFromAPI(vk *api.VK, msg *MessageEvent) {
+	resp, err := vk.MessagesGetByID(api.Params{"message_ids": msg.MessageID})
+	if err != nil || len(resp.Items) == 0 {
+		return
+	}
+	m := resp.Items[0]
+	msg.FromID = m.FromID
+	msg.PeerID = m.PeerID
+	msg.Text = m.Text
+	msg.ConversationMessageID = m.ConversationMessageID
+	if m.Date != 0 {
+		msg.Timestamp = m.Date
 	}
 }
 

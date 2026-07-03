@@ -13,7 +13,7 @@ import (
 )
 
 // version — версия сборки, проставляется линкером: -ldflags "-X main.version=vX.Y.Z".
-var version = "dev"
+var version = "v5.0.0"
 
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
