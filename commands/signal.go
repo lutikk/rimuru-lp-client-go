@@ -49,36 +49,31 @@ func HandleAliasSignal(vk *api.VK, peerID, messageID, convMsgID, fromID, ownerID
 		return
 	}
 
-	msg, err := GetMessageByConvID(vk, peerID, convMsgID)
-	if err != nil {
-		EditMessage(vk, peerID, messageID, fmt.Sprintf("⚠ Ошибка: %v", err))
-		return
-	}
-
-	msgFromID := jsonInt(msg, "from_id")
-	msgConvID := jsonInt(msg, "conversation_message_id")
-
+	// from_id и conversation_message_id уже точные — сообщение гидрировано через
+	// messages.getById в роутере. Раньше здесь был повторный getByConversationMessageId
+	// по тому же сообщению: лишний round-trip к VK (из-за него алиас тормозил) плюс
+	// риск падения. Берём готовые значения — алиас теперь без второго запроса.
 	preparedText := polnCmd
 	if signal != "" {
 		preparedText += separator + signal
 	}
 
 	model := map[string]interface{}{
-		"user_id": msgFromID,
+		"user_id": fromID,
 		"method":  "lpSendMySignal",
 		"secret":  secretCode,
 		"message": map[string]interface{}{
-			"conversation_message_id": msgConvID,
-			"from_id":                 msgFromID,
+			"conversation_message_id": convMsgID,
+			"from_id":                 fromID,
 			"date":                    timestamp,
 			"text":                    preparedText,
 			"peer_id":                 peerID,
 		},
 		"object": map[string]interface{}{
 			"chat":                    nil,
-			"from_id":                 msgFromID,
+			"from_id":                 fromID,
 			"value":                   preparedText,
-			"conversation_message_id": msgConvID,
+			"conversation_message_id": convMsgID,
 		},
 	}
 
@@ -160,11 +155,4 @@ func formatErrorMsg(code int) string {
 		return fmt.Sprintf("⚠ Ошибка сервера Rimulu. Сервер, ответил: <<%s>>", msg)
 	}
 	return fmt.Sprintf("⚠ Ошибка сервера Rimulu. Сервер, ответил: <<Ошибка #%d>>", code)
-}
-
-func jsonInt(m map[string]interface{}, key string) int {
-	if v, ok := m[key].(float64); ok {
-		return int(v)
-	}
-	return 0
 }
