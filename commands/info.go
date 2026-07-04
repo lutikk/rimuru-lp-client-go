@@ -11,9 +11,9 @@ import (
 
 	"github.com/SevereCloud/vksdk/v3/api"
 	"github.com/shirou/gopsutil/v4/process"
-)
 
-const version = "4.6.4"
+	"rimuru_lp_client_go/lp"
+)
 
 func MatchInfo(servPref []string, text string) bool {
 	lower := strings.ToLower(text)
@@ -75,7 +75,7 @@ func HandleInfo(vk *api.VK, peerID, messageID, ownerID, fromID int, data InfoDat
 	runtime.ReadMemStats(&m)
 	memMB := float64(m.Alloc) / 1024 / 1024
 
-	text := fmt.Sprintf("RimuruLP v%s (Go)\n", version)
+	text := fmt.Sprintf("RimuruLP v%s (Go)\n", lp.Version)
 	text += fmt.Sprintf("Мои префиксы: %s\n", strings.Join(data.MyPref, " "))
 	text += fmt.Sprintf("Сервисные префиксы: %s\n", strings.Join(data.ServPref, ""))
 	text += fmt.Sprintf("Алиасы: %d\n", data.AliasCount)
@@ -98,7 +98,7 @@ func HandleInfo(vk *api.VK, peerID, messageID, ownerID, fromID int, data InfoDat
 			Version string `json:"version"`
 		}
 		json.NewDecoder(resp.Body).Decode(&vResp)
-		if vResp.Version != "" && vResp.Version != version {
+		if vResp.Version != "" && vResp.Version != lp.Version {
 			text += fmt.Sprintf("Вышла новая версия LP %s", vResp.Version)
 		}
 	}

@@ -4,20 +4,18 @@ import (
 	"os"
 	"strings"
 
+	"rimuru_lp_client_go/commands"
+	"rimuru_lp_client_go/lp"
+
 	"github.com/SevereCloud/vksdk/v3/api"
 	longpoll "github.com/SevereCloud/vksdk/v3/longpoll-user"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
-	"rimuru_lp_client_go/commands"
 )
-
-// version — версия сборки, проставляется линкером: -ldflags "-X main.version=vX.Y.Z".
-var version = "v5.0.1"
 
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	log.Info().Str("version", version).Msg("Rimuru LP client")
+	log.Info().Str("version", lp.Version).Msg("Rimuru LP client")
 
 	cfg := LoadConfig()
 	log.Info().Int("user_id", cfg.ID).Msg("Конфиг загружен")
@@ -95,7 +93,7 @@ func handleMessage(vk *api.VK, cfg *UserConfig, event []interface{}) {
 			IgnoreCount:  len(cfg.Ignore),
 			GIgnoreCount: len(cfg.GlobalIgnore),
 			HelloCount:   len(cfg.Hello),
-		}, versionLink())
+		}, lp.VersionLink())
 		return
 	}
 
@@ -241,7 +239,7 @@ func handleMessage(vk *api.VK, cfg *UserConfig, event []interface{}) {
 		signal, separator := parseAliasSignal(text, alias.SokrCmd)
 		commands.HandleAliasSignal(vk, msg.PeerID, msg.MessageID, msg.ConversationMessageID,
 			msg.FromID, cfg.ID, msg.Timestamp, alias.PolnCmd, signal, separator,
-			cfg.SecretCode, callbackLink(), cfg.Token)
+			cfg.SecretCode, lp.CallbackLink(), cfg.Token)
 		return
 	}
 
@@ -251,7 +249,7 @@ func handleMessage(vk *api.VK, cfg *UserConfig, event []interface{}) {
 		signalText := strings.TrimSpace(text[len(pref):])
 		if signalText != "" {
 			commands.HandleSendSignal(vk, msg.PeerID, msg.MessageID, msg.ConversationMessageID,
-				msg.FromID, cfg.ID, msg.Timestamp, signalText, cfg.SecretCode, callbackLink())
+				msg.FromID, cfg.ID, msg.Timestamp, signalText, cfg.SecretCode, lp.CallbackLink())
 		}
 		return
 	}

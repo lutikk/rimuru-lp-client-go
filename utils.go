@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"rimuru_lp_client_go/lp"
 )
 
 var httpClient = &http.Client{
@@ -19,7 +21,7 @@ func getCode(token string) (string, error) {
 	// GET с JSON-телом — как в питон-клиенте (requests.get(url, json={'token':...})).
 	// Хаб отдаёт /secret_code/ ИМЕННО как GET; POST даёт 405. Раньше клиент слал POST —
 	// ошибка порта, из-за неё secret_code не приходил и все callback-сигналы отвергались.
-	req, err := http.NewRequest(http.MethodGet, getLPInfoLink(), bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodGet, lp.GetLPInfoLink(), bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("не удалось собрать запрос secret_code: %w", err)
 	}

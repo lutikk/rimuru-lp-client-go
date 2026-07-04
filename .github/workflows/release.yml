@@ -33,7 +33,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           BIN="rimuru-lp-client${{ matrix.ext }}"
-          go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" -o "$BIN" .
+          VER="${GITHUB_REF_NAME#v}"   # тег v5.0.1 -> 5.0.1 (в .инфо префикс v добавляется в формате)
+          go build -trimpath -ldflags "-s -w -X rimuru_lp_client_go/lp.Version=${VER}" -o "$BIN" .
           NAME="rimuru-lp-client_${{ matrix.goos }}_${{ matrix.goarch }}"
           mkdir -p "$NAME"
           cp "$BIN" README.md "$NAME"/

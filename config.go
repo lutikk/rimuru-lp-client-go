@@ -12,6 +12,8 @@ import (
 	"sync"
 
 	"github.com/SevereCloud/vksdk/v3/api"
+
+	"rimuru_lp_client_go/lp"
 )
 
 type Alias struct {
@@ -117,7 +119,7 @@ func initNewConfig() *UserConfig {
 	fmt.Println()
 	fmt.Println("1) Открой в браузере эту ссылку и войди в свой VK-аккаунт:")
 	fmt.Println()
-	fmt.Println("   " + vkAuthURL)
+	fmt.Println("   " + lp.AuthURL)
 	fmt.Println()
 	fmt.Println("2) После входа тебя перекинет на страницу oauth.vk.com/blank.html —")
 	fmt.Println("   скопируй ВЕСЬ адрес из строки браузера (в нём есть #access_token=...)")
